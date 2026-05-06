@@ -1,6 +1,5 @@
 # Sistema de Recomendación de Películas
 
-## Descripción del Proyecto
 
 Este proyecto consiste en el diseño de un sistema de recomendación de películas basado en el uso de algoritmos híbridos y bases de datos en grafos. El objetivo principal es ayudar a los usuarios a encontrar contenido relevante de manera rápida y personalizada, reduciendo el tiempo de decisión al elegir qué película ver.
 
@@ -32,18 +31,6 @@ El sistema implementa un modelo híbrido, que:
 3. Explora relaciones en el grafo (géneros, actores, directores)  
 4. Genera recomendaciones basadas en múltiples criterios  
 5. Ordena los resultados según su relevancia  
-
----
-
-## Estructura del Proyecto
-
-El repositorio incluye:
-
-- Investigación sobre algoritmos de recomendación  
-- Aplicación del proceso de Design Thinking  
-- Pseudocódigo del algoritmo de recomendación  
-- Diseño de la base de datos en grafos  
-- Diagramas y prototipos del sistema  
 
 ---
 
