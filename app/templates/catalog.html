@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Catálogo — CineGraph{% endblock %}
+
+{# ── Variables opcionales con defaults seguros ─────────────────
+   generos y filtros pueden llegar vacíos o no ser pasados.
+#}
+{% set _generos = generos | default([]) %}
+{% set _movies  = movies  | default([]) %}
+{% set _filtros = filtros | default({}) %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Catálogo</h1>
+    <p class="subtitle">Explora y califica películas para mejorar tus recomendaciones</p>
+  </div>
+  <span class="count-badge">{{ _movies | length }} películas</span>
+</div>
+
+<!-- ── Filtros ────────────────────────────────────────────────── -->
+<form method="GET" class="filters-form" id="filters-form">
+
+  <!-- Búsqueda live -->
+  <div class="filter-group filter-search-wrap">
+    <label for="live-search" class="filter-label">Buscar</label>
+    <input type="text"
+           id="live-search"
+           placeholder="Título de película…"
+           autocomplete="off"
+           style="flex:1; min-width:180px;"/>
+  </div>
+
+  <div class="filter-group">
+    <label for="filtro-genero" class="filter-label">Género</label>
+    <select name="genero" id="filtro-genero">
+      <option value="">Todos</option>
+      {% for g in _generos %}
+        <option value="{{ g }}" {% if _filtros.get('genero', '') == g %}selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="filter-group">
+    <label for="filtro-anio-min" class="filter-label">Año desde</label>
+    <input type="number" name="anio_min" id="filtro-anio-min" placeholder="1970"
+           value="{{ _filtros.get('anio_min', '') }}" min="1900" max="2030"
+           style="width:110px;"/>
+  </div>
+
+  <div class="filter-group">
+    <label for="filtro-anio-max" class="filter-label">Año hasta</label>
+    <input type="number" name="anio_max" id="filtro-anio-max" placeholder="2025"
+           value="{{ _filtros.get('anio_max', '') }}" min="1900" max="2030"
+           style="width:110px;"/>
+  </div>
+
+  <div class="filter-group">
+    <label for="filtro-rating" class="filter-label">Rating mín.</label>
+    <input type="number" name="rating_min" id="filtro-rating" placeholder="7.0"
+           value="{{ _filtros.get('rating_min', '') }}" min="0" max="10" step="0.1"
+           style="width:100px;"/>
+  </div>
+
+  <div class="filter-group">
+    <label for="filtro-order" class="filter-label">Ordenar por</label>
+    <select name="order_by" id="filtro-order">
+      <option value="rating" {% if _filtros.get('order_by', 'rating') == 'rating' %}selected{% endif %}>Rating</option>
+      <option value="anio"   {% if _filtros.get('order_by') == 'anio'   %}selected{% endif %}>Año</option>
+      <option value="titulo" {% if _filtros.get('order_by') == 'titulo' %}selected{% endif %}>Título A–Z</option>
+    </select>
+  </div>
+
+  <div class="filters-actions">
+    <button type="submit" class="btn-primary btn-sm">Filtrar</button>
+    <a href="{{ url_for('movies.catalog') }}" class="btn-ghost btn-sm">Limpiar</a>
+  </div>
+</form>
+
+<!-- ── Grid de películas ──────────────────────────────────────── -->
+{% if _movies %}
+  <div class="cards-grid" id="movies-grid">
+    {% for movie in _movies %}
+    <div class="card movie-card">
+      <div class="card-badges">
+        {% if movie.rating %}<span class="badge badge-rating">{{ movie.rating }}/10</span>{% endif %}
+        {% if movie.anio   %}<span class="badge">{{ movie.anio }}</span>{% endif %}
+      </div>
+      <h3><a href="{{ url_for('movies.detail', movie_id=movie.id) }}">{{ movie.titulo }}</a></h3>
+      <div class="card-meta">
+        {% if movie.director %}<span class="movie-director">{{ movie.director }}</span>{% endif %}
+      </div>
+      {% if movie.generos %}
+        <div class="genre-tags">
+          {% for g in movie.generos[:3] %}<span class="tag tag-genre">{{ g }}</span>{% endfor %}
+          {% if movie.generos | length > 3 %}
+            <span class="tag">+{{ movie.generos | length - 3 }}</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="no-results-msg" class="empty-state" style="display:none;">
+    <span class="empty-icon">🔍</span>
+    <h2>Sin resultados</h2>
+    <p>No se encontraron películas con ese título.</p>
+  </div>
+
+{% else %}
+  <div class="empty-state">
+    <span class="empty-icon">🔍</span>
+    <h2>Sin resultados</h2>
+    <p>No se encontraron películas con esos filtros.</p>
+    <a href="{{ url_for('movies.catalog') }}" class="btn-outline">Ver todas las películas</a>
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('live-search');
+    const grid        = document.getElementById('movies-grid');
+    const noResults   = document.getElementById('no-results-msg');
+    if (!searchInput || !grid) return;
+
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+
+    searchInput.addEventListener('input', debounce(() => {
+      const q = searchInput.value.trim().toLowerCase();
+      let visible = 0;
+      grid.querySelectorAll('.movie-card').forEach(card => {
+        const title = card.querySelector('h3')?.textContent.toLowerCase() || '';
+        const show  = !q || title.includes(q);
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      if (noResults) noResults.style.display = visible === 0 ? 'block' : 'none';
+    }, 200));
+  });
+
+  function debounce(fn, delay) {
+    let t;
+    return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); };
+  }
+</script>
+{% endblock %}
