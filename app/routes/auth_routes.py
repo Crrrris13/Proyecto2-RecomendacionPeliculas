@@ -13,7 +13,7 @@ def register():
         nombre = request.form.get("nombre", "").strip()
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
+        confirm_password = request.form.get("confirm", "")
         edad_str = request.form.get("edad", "")
 
         if password != confirm_password:
