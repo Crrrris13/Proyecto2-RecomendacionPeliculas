@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}CineGraph — Tu próxima película favorita{% endblock %}
+
+{% block content %}
+<!-- ── Hero ──────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <span>◈</span> Recomendaciones con grafos
+    </div>
+
+    <h1>Descubre tu<br/><em>próxima favorita</em></h1>
+
+    <p class="hero-sub">
+       Recomendaciones que realmente importan.
+    </p>
+
+    {% set _uid = session.get('user_id') %}
+    {% if _uid %}
+      <div class="hero-actions">
+        <a href="{{ url_for('recommendations.show', user_id=_uid) }}" class="btn-primary">
+          Ver mis recomendaciones →
+        </a>
+        <a href="{{ url_for('movies.catalog') }}" class="btn-outline">
+          Explorar catálogo
+        </a>
+      </div>
+    {% else %}
+      <div class="hero-actions">
+        <a href="{{ url_for('auth.register') }}" class="btn-primary">Crear cuenta gratis</a>
+        <a href="{{ url_for('auth.login') }}"    class="btn-outline">Ya tengo cuenta</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Películas destacadas (posters con skeleton/placeholder) -->
+  <div class="hero-featured">
+    <p class="hero-featured-label">Películas populares en CineGraph</p>
+    <div class="featured-strip" id="featured-strip">
+      {% set featured = [
+        {'titulo': 'El Padrino',           'anio': 1972, 'genero': 'Crimen'},
+        {'titulo': 'Pulp Fiction',          'anio': 1994, 'genero': 'Crimen'},
+        {'titulo': 'Interstellar',          'anio': 2014, 'genero': 'Sci-Fi'},
+        {'titulo': 'Parasite',              'anio': 2019, 'genero': 'Thriller'},
+        {'titulo': 'The Dark Knight',       'anio': 2008, 'genero': 'Acción'},
+        {'titulo': 'Spirited Away',         'anio': 2001, 'genero': 'Animación'},
+        {'titulo': 'Inception',             'anio': 2010, 'genero': 'Sci-Fi'},
+        {'titulo': 'Schindler\'s List',     'anio': 1993, 'genero': 'Drama'},
+        {'titulo': 'Forrest Gump',          'anio': 1994, 'genero': 'Drama'},
+        {'titulo': 'The Shawshank',         'anio': 1994, 'genero': 'Drama'},
+      ] %}
+
+      {% for m in featured %}
+      <a href="{{ url_for('movies.catalog') }}" class="poster-card">
+        <div class="poster-img">
+          <div class="poster-placeholder">
+            <span class="poster-icon">🎬</span>
+            <span>{{ m.genero }}</span>
+          </div>
+        </div>
+        <div class="poster-overlay">
+          <div class="poster-title">{{ m.titulo }}</div>
+          <div class="poster-year">{{ m.anio }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── Cómo funciona ──────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title-line">¿Cómo funciona?</h2>
+  </div>
+  <div class="cards-grid three">
+    <div class="card info-card">
+      <div class="card-icon-wrap">
+        <span class="card-icon">👥</span>
+      </div>
+      <h3>Filtrado colaborativo</h3>
+      <p>Encontramos usuarios con gustos similares a los tuyos y te recomendamos lo que a ellos les encantó.</p>
+    </div>
+    <div class="card info-card">
+      <div class="card-icon-wrap">
+        <span class="card-icon">🎭</span>
+      </div>
+      <h3>Filtrado por contenido</h3>
+      <p>Analizamos géneros, directores y actores de tus películas favoritas para sugerirte títulos similares.</p>
+    </div>
+    <div class="card info-card">
+      <div class="card-icon-wrap">
+        <span class="card-icon">◈</span>
+      </div>
+      <h3>Base de datos de grafos</h3>
+      <p>Usamos Neo4j para recorrer eficientemente las relaciones entre usuarios, películas y atributos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA si no está autenticado ────────────────────────────── -->
+{% if not session.get('user_id') %}
+<section class="section">
+  <div class="cta-banner">
+    <div class="cta-content">
+      <h2>Empieza hoy — es gratis</h2>
+      <p>Registrate, selecciona tus géneros favoritos y recibe recomendaciones personalizadas.</p>
+    </div>
+    <div class="cta-actions">
+      <a href="{{ url_for('auth.register') }}" class="btn-primary">Crear cuenta</a>
+      <a href="{{ url_for('movies.catalog') }}" class="btn-ghost">Ver catálogo →</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
