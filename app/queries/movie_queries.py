@@ -32,44 +32,56 @@ def fetch_all_movies(
 
 
 def _fetch_all_tx(tx, genero, anio_min, anio_max, rating_min, order_by, limit):
-    # Construimos la cláusula WHERE dinámicamente
     filters = []
     params: dict = {"limit": limit}
 
-    if genero:
-        filters.append("g.nombre = $genero")
-        params["genero"] = genero
-    if anio_min:
+    if anio_min is not None:
         filters.append("p.anio >= $anio_min")
         params["anio_min"] = anio_min
-    if anio_max:
+    if anio_max is not None:
         filters.append("p.anio <= $anio_max")
         params["anio_max"] = anio_max
-    if rating_min:
+    if rating_min is not None:
         filters.append("p.rating >= $rating_min")
         params["rating_min"] = rating_min
 
     where = ("WHERE " + " AND ".join(filters)) if filters else ""
 
-    # Validación del campo de orden para evitar inyección Cypher
-    allowed_order = {"rating", "anio", "titulo"}
-    order_field   = order_by if order_by in allowed_order else "rating"
+    allowed_order   = {"rating", "anio", "titulo"}
+    order_field     = order_by if order_by in allowed_order else "rating"
+    order_direction = "ASC" if order_field == "titulo" else "DESC"
 
-    cypher = f"""
-        MATCH (p:Pelicula)
-        OPTIONAL MATCH (p)-[:ES_DE_GENERO]->(g:Genero)
-        OPTIONAL MATCH (d:Director)-[:DIRIGIO]->(p)
-        OPTIONAL MATCH (a:Actor)-[:ACTUO_EN]->(p)
-        {where}
-        RETURN p,
-               collect(DISTINCT g.nombre) AS generos,
-               d.nombre                   AS director,
-               collect(DISTINCT a.nombre) AS actores
-        ORDER BY p.{order_field} DESC
-        LIMIT $limit
-    """
+    # Si hay filtro de género usamos MATCH directo, no OPTIONAL MATCH
+    if genero:
+        params["genero"] = genero
+        cypher = f"""
+            MATCH (p:Pelicula)-[:ES_DE_GENERO]->(g:Genero {{nombre: $genero}})
+            OPTIONAL MATCH (d:Director)-[:DIRIGIO]->(p)
+            OPTIONAL MATCH (a:Actor)-[:ACTUO_EN]->(p)
+            {where}
+            WITH p, collect(DISTINCT g.nombre) AS generos, d.nombre AS director,
+                 collect(DISTINCT a.nombre) AS actores
+            RETURN p, generos, director, actores
+            ORDER BY p.{order_field} {order_direction}
+            LIMIT $limit
+        """
+    else:
+        cypher = f"""
+            MATCH (p:Pelicula)
+            OPTIONAL MATCH (p)-[:ES_DE_GENERO]->(g:Genero)
+            OPTIONAL MATCH (d:Director)-[:DIRIGIO]->(p)
+            OPTIONAL MATCH (a:Actor)-[:ACTUO_EN]->(p)
+            {where}
+            WITH p, collect(DISTINCT g.nombre) AS generos, d.nombre AS director,
+                 collect(DISTINCT a.nombre) AS actores
+            RETURN p, generos, director, actores
+            ORDER BY p.{order_field} {order_direction}
+            LIMIT $limit
+        """
+
     return [
-        {**dict(r["p"]), "generos": r["generos"], "director": r["director"], "actores": r["actores"]}
+        {**dict(r["p"]), "generos": r["generos"],
+         "director": r["director"], "actores": r["actores"]}
         for r in tx.run(cypher, **params)
     ]
 

@@ -629,14 +629,16 @@ img { display: block; max-width: 100%; }
 /* ── Cards grid ──────────────────────────────────────────────── */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));  /* era 260px */
   gap: 1.25rem;
 }
+
 .cards-grid.three { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 .cards-grid.five  { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 
 /* ── Movie card (catálogo) ───────────────────────────────────── */
 .card {
+  padding: 0;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -653,7 +655,7 @@ img { display: block; max-width: 100%; }
 }
 
 .card-poster {
-  height: 200px;
+  height: 280px;    /* era 200px — más alto para que no se vea aplastado */
   background: var(--bg3);
   position: relative;
   overflow: hidden;

@@ -81,6 +81,22 @@
   <div class="cards-grid" id="movies-grid">
     {% for movie in _movies %}
     <div class="card movie-card">
+      <a href="{{ url_for('movies.detail', movie_id=movie.id) }}" class="card-poster">
+    {% if movie.poster_url %}
+      <img src="{{ movie.poster_url }}"
+           alt="{{ movie.titulo }}"
+           loading="lazy"
+           onerror="this.parentElement.innerHTML='<div class=\'card-poster-placeholder\'><span class=\'film-reel\'>🎬</span><span class=\'poster-abbr\'>{{ movie.titulo[:18] }}</span></div>'"/>
+    {% else %}
+      <div class="card-poster-placeholder">
+        <span class="film-reel">🎬</span>
+        <span class="poster-abbr">{{ movie.titulo[:18] }}</span>
+      </div>
+    {% endif %}
+    {% if movie.rating %}
+      <span class="card-rating-badge">★ {{ movie.rating }}</span>
+    {% endif %}
+  </a>
       <div class="card-badges">
         {% if movie.rating %}<span class="badge badge-rating">{{ movie.rating }}/10</span>{% endif %}
         {% if movie.anio   %}<span class="badge">{{ movie.anio }}</span>{% endif %}
