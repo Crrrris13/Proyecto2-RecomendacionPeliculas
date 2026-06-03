@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Recomendaciones para {{ user.nombre }} — CineGraph{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Hola, {{ user.nombre }} 👋</h1>
+    <p class="subtitle">Recomendaciones personalizadas para ti</p>
+  </div>
+  <a href="{{ url_for('users.profile', user_id=user.id) }}" class="btn-outline">Mi perfil</a>
+</div>
+
+{% if recommendations %}
+
+  <!-- Toolbar de ordenamiento -->
+  <div class="recs-toolbar">
+    <span class="recs-count">
+      <strong>{{ recommendations|length }}</strong> recomendaciones
+    </span>
+    <div class="sort-controls">
+      <button class="sort-btn active" data-sort="relevancia">Relevancia</button>
+      <button class="sort-btn" data-sort="rating">Rating</button>
+      <button class="sort-btn" data-sort="anio">Año</button>
+    </div>
+  </div>
+
+  <!-- Grid de recomendaciones -->
+  <div class="cards-grid" id="recs-grid">
+    {% for rec in recommendations %}
+    <div class="card rec-card"
+         data-relevancia="{{ rec.puntaje_relevancia | default(0) }}"
+         data-rating="{{ rec.rating | default(0) }}"
+         data-anio="{{ rec.anio | default(0) }}">
+
+      <!-- Poster -->
+      <a href="{{ url_for('movies.detail', movie_id=rec.pelicula_id) }}" class="card-poster">
+        {% if rec.poster_url %}
+          <img src="{{ rec.poster_url }}" alt="{{ rec.titulo }}" loading="lazy"/>
+        {% else %}
+          <div class="card-poster-placeholder">
+            <span class="film-reel">🎬</span>
+            <span class="poster-abbr">{{ rec.titulo[:16] }}</span>
+          </div>
+        {% endif %}
+        {% if rec.rating %}
+          <span class="card-rating-badge">★ {{ rec.rating }}</span>
+        {% endif %}
+      </a>
+
+      <!-- Badges Top Match / Popular -->
+      <div class="card-badges">
+        {% set _rel = rec.puntaje_relevancia | default(0) | float %}
+        {% if _rel >= 4.5 %}
+          <span class="badge badge-top">🏆 Top Match</span>
+        {% elif _rel >= 4.0 %}
+          <span class="badge badge-score">⭐ {{ '%.1f'|format(_rel) }}</span>
+        {% else %}
+          <span class="badge badge-score">{{ '%.1f'|format(_rel) }}</span>
+        {% endif %}
+        {% if rec.tipo | default('') == 'popular' %}
+          <span class="badge badge-popular">🔥 Popular</span>
+        {% endif %}
+      </div>
+
+      <!-- Info -->
+      <div class="card-body">
+        <h3 class="rec-title">
+          <a href="{{ url_for('movies.detail', movie_id=rec.pelicula_id) }}">{{ rec.titulo }}</a>
+        </h3>
+
+        {% if rec.anio %}
+          <p class="rec-year">{{ rec.anio }}</p>
+        {% endif %}
+
+        {% if rec.generos %}
+          <div class="genre-tags">
+            {% for g in rec.generos[:2] %}<span class="tag tag-genre">{{ g }}</span>{% endfor %}
+          </div>
+        {% endif %}
+
+        {% if rec.razon %}
+          <p class="rec-reason">{{ rec.razon }}</p>
+        {% endif %}
+
+        <div class="card-actions">
+          <a href="{{ url_for('movies.detail', movie_id=rec.pelicula_id) }}"
+             class="btn-primary btn-sm">
+            Ver detalles
+          </a>
+          <button class="btn-outline btn-sm rate-btn"
+                  data-movie-id="{{ rec.pelicula_id }}"
+                  data-movie-title="{{ rec.titulo }}">
+            Calificar
+          </button>
+        </div>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+
+  <!-- Estado vacío con instrucciones -->
+  <div class="empty-state">
+    <span class="empty-icon">🎬</span>
+    <h2>Aún no hay recomendaciones para ti</h2>
+    <p>Califica al menos <strong>3 películas</strong> con puntaje 4 o 5 estrellas
+       para activar el algoritmo de recomendación.</p>
+    <a href="{{ url_for('movies.catalog') }}" class="btn-primary">Explorar catálogo</a>
+  </div>
+
+  <!-- Skeleton loading preview (muestra que la sección existe) -->
+  <div class="cards-grid" style="margin-top: 2rem; opacity: .35; pointer-events: none;" aria-hidden="true">
+    {% for _ in range(6) %}
+    <div class="card skeleton-card">
+      <div class="skeleton skeleton-poster"></div>
+      <div class="skeleton-content">
+        <div class="skeleton skeleton-line skeleton-line-full"></div>
+        <div class="skeleton skeleton-line skeleton-line-med"></div>
+        <div class="skeleton skeleton-line skeleton-line-short"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+{% endif %}
+
+<!-- ── Modal de calificación ────────────────────────────────── -->
+<div id="rating-modal" class="modal hidden">
+  <div class="modal-box">
+    <button class="modal-close" id="close-modal" aria-label="Cerrar">✕</button>
+    <h2 id="modal-title">Calificar película</h2>
+    <div class="stars" id="star-selector-modal">
+      {% for i in range(1, 6) %}
+        <button class="star" data-value="{{ i }}">★</button>
+      {% endfor %}
+    </div>
+    <p id="rating-label-modal" class="rating-label" style="margin-top:.75rem;">
+      Selecciona una puntuación
+    </p>
+    <button id="submit-rating-modal" class="btn-primary btn-full" style="margin-top:.5rem;" disabled>
+      Guardar calificación
+    </button>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recommendations.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ratings.js') }}"></script>
+<script>
+  // Adaptar initRatings para los IDs únicos del modal de esta página
+  // (evita colisión con movie_detail.html que usa star-selector / rating-label)
+  document.addEventListener('DOMContentLoaded', () => {
+    const userId  = '{{ session.get("user_id", "") }}';
+    if (!userId) return;
+
+    const modal     = document.getElementById('rating-modal');
+    const closeBtn  = document.getElementById('close-modal');
+    const submitBtn = document.getElementById('submit-rating-modal');
+    const labelEl   = document.getElementById('rating-label-modal');
+    const starBtns  = document.querySelectorAll('#star-selector-modal .star');
+
+    if (!modal) return;
+
+    let currentMovieId    = null;
+    let currentMovieTitle = null;
+    let selectedScore     = 0;
+
+    // Abrir modal
+    document.querySelectorAll('.rate-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentMovieId    = btn.dataset.movieId;
+        currentMovieTitle = btn.dataset.movieTitle;
+        selectedScore     = 0;
+
+        document.getElementById('modal-title').textContent = `Calificar: ${currentMovieTitle}`;
+        starBtns.forEach(s => s.classList.remove('active'));
+        labelEl.textContent   = 'Selecciona una puntuación';
+        submitBtn.disabled    = true;
+
+        modal.classList.remove('hidden');
+      });
+    });
+
+    // Cerrar
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+
+    // Estrellas
+    starBtns.forEach(star => {
+      star.addEventListener('mouseenter', () => highlight(starBtns, parseInt(star.dataset.value)));
+      star.addEventListener('mouseleave', () => highlight(starBtns, selectedScore));
+      star.addEventListener('click', () => {
+        selectedScore      = parseInt(star.dataset.value);
+        labelEl.textContent = scoreLabel(selectedScore);
+        submitBtn.disabled  = false;
+        highlight(starBtns, selectedScore);
+      });
+    });
+
+    // Enviar
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedScore || !currentMovieId) return;
+      submitBtn.disabled   = true;
+      submitBtn.textContent = 'Guardando…';
+
+      try {
+        const res = await fetch('/ratings/', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ user_id: userId, movie_id: currentMovieId, puntaje: selectedScore }),
+        });
+        if (res.ok) {
+          modal.classList.add('hidden');
+          showToast(`✓ Calificaste "${currentMovieTitle}" con ${selectedScore}/5`);
+        } else {
+          showToast('Error al guardar. Inténtalo de nuevo.', true);
+        }
+      } catch {
+        showToast('Error de conexión.', true);
+      } finally {
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Guardar calificación';
+      }
+    });
+
+    function highlight(stars, upTo) {
+      stars.forEach((s, i) => s.classList.toggle('active', i < upTo));
+    }
+    function scoreLabel(score) {
+      const labels = ['','Muy malo','Malo','Regular','Bueno','Excelente'];
+      return `${labels[score] || ''} (${score}/5)`;
+    }
+  });
+</script>
+{% endblock %}
