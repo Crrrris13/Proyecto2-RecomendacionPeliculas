@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Perfil de {{ user.nombre }} — CineGraph{% endblock %}
+
+{# ── Variables opcionales con defaults seguros ─────────────────
+   stats y favorites pueden no ser pasadas por el backend.
+   user.generos_favoritos puede ser None si el usuario no los configuró.
+#}
+{% set _stats     = stats     | default({}) %}
+{% set _favorites = favorites | default([]) %}
+{% set _history   = history   | default([]) %}
+{% set _uid       = session.get('user_id') | string if session.get('user_id') is not none else '' %}
+{% set _user_id_s = user.id | string %}
+{% set _generos   = user.generos_favoritos | default([]) %}
+
+{% block content %}
+
+<!-- ── Encabezado de perfil ───────────────────────────────────── -->
+<div class="page-header">
+  <div class="profile-identity">
+    <div class="profile-avatar">{{ user.nombre[:2] | upper }}</div>
+    <div>
+      <h1>{{ user.nombre }}</h1>
+      <p class="subtitle">@{{ user.username | default(user.id) }} · {{ user.edad | default('—') }} años</p>
+    </div>
+  </div>
+  <div class="profile-actions">
+    {% if _uid and _uid == _user_id_s %}
+      <a href="{{ url_for('recommendations.show', user_id=user.id) }}" class="btn-primary">
+        Ver recomendaciones →
+      </a>
+      <a href="{{ url_for('auth.preferences') }}" class="btn-outline btn-sm">
+        Editar géneros
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Stats ──────────────────────────────────────────────────── -->
+<div class="stats-row">
+  <div class="stat-card">
+    <span class="stat-number">{{ _stats.peliculas_vistas | default(0) }}</span>
+    <span class="stat-label">Películas vistas</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ _stats.rating_promedio | default('—') }}</span>
+    <span class="stat-label">Rating promedio</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ _favorites | length }}</span>
+    <span class="stat-label">Favoritas</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-number">{{ _generos | length }}</span>
+    <span class="stat-label">Géneros favoritos</span>
+  </div>
+</div>
+
+<!-- ── Géneros favoritos ──────────────────────────────────────── -->
+{% if _generos %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title-line">Géneros favoritos</h2>
+  </div>
+  <div class="genre-tags">
+    {% for g in _generos %}
+      <span class="tag tag-genre">{{ g }}</span>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ── Películas favoritas ────────────────────────────────────── -->
+{% if _favorites %}
+<section class="section favorites-section">
+  <div class="section-header">
+    <h2 class="section-title-line">♥ Favoritas</h2>
+    <span class="count-badge">{{ _favorites | length }}</span>
+  </div>
+  <div class="cards-grid">
+    {% for movie in _favorites %}
+    <div class="card">
+      <a href="{{ url_for('movies.detail', movie_id=movie.id) }}" class="card-poster">
+        {% if movie.poster_url %}
+          <img src="{{ movie.poster_url }}" alt="{{ movie.titulo }}" loading="lazy"/>
+        {% else %}
+          <div class="card-poster-placeholder">
+            <span class="film-reel">🎬</span>
+            <span class="poster-abbr">{{ movie.titulo[:16] }}</span>
+          </div>
+        {% endif %}
+        {% if movie.rating %}
+          <span class="card-rating-badge">★ {{ movie.rating }}</span>
+        {% endif %}
+      </a>
+      <div class="card-body">
+        <h3><a href="{{ url_for('movies.detail', movie_id=movie.id) }}">{{ movie.titulo }}</a></h3>
+        <div class="card-meta">
+          {% if movie.anio %}<span>{{ movie.anio }}</span>{% endif %}
+        </div>
+        {% if movie.generos %}
+          <div class="genre-tags">
+            {% for g in movie.generos[:2] %}<span class="tag tag-genre">{{ g }}</span>{% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% elif _uid and _uid == _user_id_s %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title-line">♥ Favoritas</h2>
+  </div>
+  <div class="empty-state" style="padding: 2.5rem 1rem;">
+    <span class="empty-icon">♡</span>
+    <h2>Sin favoritas aún</h2>
+    <p>Agrega películas a tus favoritas desde la página de detalle.</p>
+    <a href="{{ url_for('movies.catalog') }}" class="btn-primary">Explorar catálogo</a>
+  </div>
+</section>
+{% endif %}
+
+<!-- ── Historial de calificaciones ────────────────────────────── -->
+{% if _history %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title-line">Historial</h2>
+    <span class="count-badge">{{ _history | length }} calificadas</span>
+  </div>
+  <div class="history-list">
+    {% for item in _history %}
+    <div class="history-item">
+      <div class="history-main">
+        <a href="{{ url_for('movies.detail', movie_id=item.id) }}" class="history-title">
+          {{ item.titulo }}
+        </a>
+        <div class="history-meta">
+          {% if item.generos %}
+            {% for g in item.generos[:2] %}<span class="tag tag-genre tag-sm">{{ g }}</span>{% endfor %}
+          {% endif %}
+          {% if item.anio %}<span class="tag tag-sm">{{ item.anio }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="history-side">
+        <span class="my-score">★ {{ item.mi_puntaje | default('—') }}/5</span>
+        <span class="global-score">Global: {{ item.rating_global | default('—') }}/10</span>
+        {% if item.fecha %}<span class="date">{{ item.fecha }}</span>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="empty-state">
+  <span class="empty-icon">🎬</span>
+  <h2>Sin historial</h2>
+  <p>Aún no has calificado ninguna película.</p>
+  <a href="{{ url_for('movies.catalog') }}" class="btn-primary">Explorar catálogo</a>
+</div>
+{% endif %}
+
+{% endblock %}
