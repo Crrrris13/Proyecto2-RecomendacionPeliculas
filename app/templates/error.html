@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code | default('') }} — CineGraph{% endblock %}
+
+{# ── Variables opcionales con defaults seguros ─────────────────
+   code y message deben ser pasados por el handler, pero se protegen
+   en caso de que el handler de error falle también.
+   Las URLs se hardcodean para evitar que url_for() falle durante un 500.
+#}
+{% set _code    = code    | default('Error') %}
+{% set _message = message | default('Ocurrió un error inesperado.') %}
+
+{% block content %}
+<div class="error-page">
+  <span class="error-code">{{ _code }}</span>
+  <h1>{{ _message }}</h1>
+  <p style="color:var(--text-dim); margin-bottom:2rem; font-size:.9rem;">
+    {% if _code == 404 %}
+      La página que buscas no existe o fue movida.
+    {% elif _code == 403 %}
+      No tienes permiso para acceder a este contenido.
+    {% elif _code == 500 %}
+      Algo salió mal en el servidor. Inténtalo más tarde.
+    {% else %}
+      Ocurrió un error inesperado.
+    {% endif %}
+  </p>
+  <div style="display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap;">
+    <!-- URLs hardcodeadas: url_for() puede fallar si la app está en estado corrupto (ej. durante 500) -->
+    <a href="/" class="btn-primary">Volver al inicio</a>
+    <a href="/movies" class="btn-outline">Ver catálogo</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .error-code {
+    animation: glitch 3s infinite;
+  }
+  @keyframes glitch {
+    0%, 90%, 100% { text-shadow: none; }
+    92% {
+      text-shadow:
+        -2px 0 var(--accent2),
+        2px 0 var(--danger);
+    }
+    94% { text-shadow: none; }
+    96% {
+      text-shadow:
+        2px 0 var(--accent2),
+        -2px 0 var(--danger);
+    }
+  }
+</style>
+{% endblock %}
