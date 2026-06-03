@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}{{ movie.titulo }} — CineGraph{% endblock %}
+
+{# ── Variables opcionales con defaults seguros ─────────────────
+   Todas las variables que el backend PUEDE no pasar se resuelven
+   aquí con default(), evitando UndefinedError en cualquier ruta.
+#}
+{% set _uid        = session.get('user_id') %}
+{% set _is_fav     = is_favorite    | default(false) %}
+{% set _similar    = similar_movies | default([]) %}
+{% set _user_rating = user_rating   | default(none) %}
+
+{% block content %}
+
+<!-- ── Detalle layout dos columnas ───────────────────────────── -->
+<div class="detail-layout">
+
+  <!-- Columna izquierda: poster sticky -->
+  <div class="detail-poster">
+    <a href="{{ url_for('movies.catalog') }}" class="back-link">← Catálogo</a>
+
+    <div class="detail-poster-img">
+      {% if movie.poster_url %}
+        <img src="{{ movie.poster_url }}" alt="{{ movie.titulo }}"/>
+      {% else %}
+        <div class="detail-poster-placeholder">
+          <span class="reel">🎬</span>
+          <span class="abbr">{{ movie.titulo[:20] }}</span>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if _uid %}
+    <!-- Botón de favorito -->
+    <div style="margin-top: 1rem;">
+      <button class="favorite-btn {% if _is_fav %}active{% endif %}"
+              id="fav-btn"
+              data-movie-id="{{ movie.id }}"
+              data-user-id="{{ _uid }}">
+        <span class="fav-icon"></span>
+        <span id="fav-label">{% if _is_fav %}En favoritos{% else %}Agregar a favoritos{% endif %}</span>
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Columna derecha: info + rating -->
+  <div class="detail-info">
+
+    <!-- Título y meta -->
+    <div class="meta-tags">
+      {% if movie.anio %}<span class="tag">{{ movie.anio }}</span>{% endif %}
+      {% if movie.rating %}<span class="tag tag-rating">★ {{ movie.rating }}/10</span>{% endif %}
+      {% if movie.generos %}
+        {% for g in movie.generos %}<span class="tag tag-genre">{{ g }}</span>{% endfor %}
+      {% endif %}
+    </div>
+
+    <h1>{{ movie.titulo }}</h1>
+
+    {% if movie.director %}
+      <p class="detail-director">Dirigida por <strong>{{ movie.director }}</strong></p>
+    {% endif %}
+
+    {% if movie.actores %}
+      {# actores puede llegar como lista o como string; join() funciona en ambos casos
+         en Jinja2 (join en string separa por carácter), así que normalizamos primero. #}
+      {% if movie.actores is string %}
+        <p class="detail-actors">Con: {{ movie.actores }}</p>
+      {% else %}
+        <p class="detail-actors">Con: {{ movie.actores | join(', ') }}</p>
+      {% endif %}
+    {% endif %}
+
+    <div class="detail-divider"></div>
+
+    <!-- Sección de calificación -->
+    {% if _uid %}
+      {# Calcula el puntaje inicial de forma segura:
+         - Extrae .puntaje sólo si _user_rating existe y no es none.
+         - Clampea a [0, 5] para que nunca salga del rango de la lista de etiquetas.
+      #}
+      {% set _puntaje = 0 %}
+      {% if _user_rating and _user_rating.puntaje is not none %}
+        {% set _raw = _user_rating.puntaje | int %}
+        {% set _puntaje = [0, [5, _raw] | min] | max %}
+      {% endif %}
+
+      {% set _score_labels = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'] %}
+
+      <section class="rating-section">
+        <h2>Tu calificación</h2>
+        <div class="stars" id="star-selector" data-current="{{ _puntaje }}">
+          {% for i in range(1, 6) %}
+            <button class="star {% if _puntaje > 0 and i <= _puntaje %}active{% endif %}"
+                    data-value="{{ i }}"
+                    aria-label="{{ i }} estrella{% if i != 1 %}s{% endif %}">★</button>
+          {% endfor %}
+        </div>
+        <p id="rating-label" class="rating-label">
+          {% if _puntaje > 0 %}
+            Tu puntaje: {{ _puntaje }}/5 — {{ _score_labels[_puntaje] }}
+          {% else %}
+            Selecciona una puntuación
+          {% endif %}
+        </p>
+        <div class="rating-actions">
+          <button id="submit-rating" class="btn-primary"
+                  {% if _puntaje == 0 %}disabled{% endif %}>
+            Guardar calificación
+          </button>
+          {% if _puntaje > 0 %}
+            <button id="delete-rating" class="btn-danger">Eliminar calificación</button>
+          {% endif %}
+        </div>
+      </section>
+
+    {% else %}
+      <div class="login-prompt">
+        <p>
+          <a href="{{ url_for('auth.login') }}">Inicia sesión</a> para calificar esta película
+          y recibir recomendaciones personalizadas.
+        </p>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ── Películas similares ────────────────────────────────────── -->
+{% if _similar %}
+<section class="similar-section">
+  <div class="section-header">
+    <h2 class="section-title-line">Películas similares</h2>
+    <a href="{{ url_for('movies.catalog') }}" class="btn-ghost btn-sm">Ver catálogo →</a>
+  </div>
+
+  <div class="cards-grid">
+    {% for sim in _similar[:4] %}
+    <div class="card">
+      <a href="{{ url_for('movies.detail', movie_id=sim.id) }}" class="card-poster">
+        {% if sim.poster_url %}
+          <img src="{{ sim.poster_url }}" alt="{{ sim.titulo }}" loading="lazy"/>
+        {% else %}
+          <div class="card-poster-placeholder">
+            <span class="film-reel">🎬</span>
+            <span class="poster-abbr">{{ sim.titulo[:16] }}</span>
+          </div>
+        {% endif %}
+        {% if sim.rating %}
+          <span class="card-rating-badge">★ {{ sim.rating }}</span>
+        {% endif %}
+      </a>
+      <div class="card-body">
+        <h3><a href="{{ url_for('movies.detail', movie_id=sim.id) }}">{{ sim.titulo }}</a></h3>
+        <div class="card-meta">
+          {% if sim.anio %}<span>{{ sim.anio }}</span>{% endif %}
+        </div>
+        {% if sim.generos %}
+          <div class="genre-tags">
+            {% for g in sim.generos[:2] %}<span class="tag tag-genre">{{ g }}</span>{% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ratings.js') }}"></script>
+<script>
+  initDetailRatings(
+    '{{ session.get("user_id", "") }}',
+    '{{ movie.id }}'
+  );
+
+  // ── Botón de favorito ───────────────────────────────────────
+  // showToast está disponible porque ratings.js se carga antes que este script.
+  const favBtn = document.getElementById('fav-btn');
+  if (favBtn) {
+    favBtn.addEventListener('click', async () => {
+      const userId  = favBtn.dataset.userId;
+      const movieId = favBtn.dataset.movieId;
+      const active  = favBtn.classList.contains('active');
+
+      favBtn.disabled = true;
+
+      try {
+        const res = await fetch('/favorites/', {
+          method:  active ? 'DELETE' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ user_id: userId, movie_id: movieId }),
+        });
+
+        if (res.ok) {
+          favBtn.classList.toggle('active');
+          const label = document.getElementById('fav-label');
+          if (label) {
+            label.textContent = favBtn.classList.contains('active')
+              ? 'En favoritos'
+              : 'Agregar a favoritos';
+          }
+          showToast(favBtn.classList.contains('active')
+            ? '♥ Agregado a favoritos'
+            : 'Eliminado de favoritos');
+        } else {
+          showToast('No se pudo actualizar favorito.', true);
+        }
+      } catch {
+        showToast('Error de conexión.', true);
+      } finally {
+        favBtn.disabled = false;
+      }
+    });
+  }
+</script>
+{% endblock %}
