@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Mis preferencias — CineGraph{% endblock %}
+
+{# ── Variables opcionales con defaults seguros ─────────────────
+   generos y selected_generos deben ser pasados por el backend.
+   Se protegen con defaults para no crashear si falta alguno.
+#}
+{% set _generos          = generos          | default([]) %}
+{% set _selected_generos = selected_generos | default([]) %}
+
+{% block content %}
+<div class="preferences-wrapper">
+
+  <div class="preferences-header">
+    <span class="auth-logo">🎭</span>
+    <h1>¿Qué tipo de películas te gustan?</h1>
+    <p>Selecciona tus géneros favoritos para personalizar tus recomendaciones.<br/>
+       Puedes elegir todos los que quieras.</p>
+  </div>
+
+  {% if not _generos %}
+    <div class="empty-state" style="padding: 2.5rem 1rem;">
+      <span class="empty-icon">🎬</span>
+      <h2>No hay géneros disponibles</h2>
+      <p>El catálogo de géneros no se pudo cargar. Inténtalo más tarde.</p>
+      <a href="{{ url_for('home.index') }}" class="btn-outline">Volver al inicio</a>
+    </div>
+  {% else %}
+
+  <form method="POST" action="{{ url_for('auth.preferences') }}" id="prefs-form">
+
+    {% set genre_icons = {
+      'Acción':          '💥',
+      'Aventura':        '🗺️',
+      'Ciencia Ficción': '🚀',
+      'Comedia':         '😂',
+      'Crimen':          '🔍',
+      'Drama':           '🎭',
+      'Historia':        '📜',
+      'Misterio':        '🕵️',
+      'Romance':         '❤️',
+      'Terror':          '👻',
+      'Thriller':        '😰',
+      'Bélico':          '⚔️',
+    } %}
+
+    <div class="genres-grid">
+      {% for genero in _generos %}
+      <label class="genre-card">
+        <input type="checkbox"
+               name="generos"
+               value="{{ genero }}"
+               {% if genero in _selected_generos %}checked{% endif %}/>
+        <div class="genre-card-inner">
+          <span class="genre-icon">{{ genre_icons.get(genero, '🎬') }}</span>
+          <span class="genre-name">{{ genero }}</span>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="preferences-actions">
+      <p id="selected-count" class="selected-hint">
+        {{ _selected_generos | length }} género{{ 's' if _selected_generos | length != 1 else '' }} seleccionado{{ 's' if _selected_generos | length != 1 else '' }}
+      </p>
+      <button type="submit" class="btn-primary" id="save-btn"
+              {% if not _selected_generos %}disabled{% endif %}>
+        Guardar preferencias →
+      </button>
+    </div>
+
+  </form>
+
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const checkboxes = document.querySelectorAll('input[name="generos"]');
+  const countLabel = document.getElementById('selected-count');
+  const saveBtn    = document.getElementById('save-btn');
+
+  function updateCount() {
+    const n = document.querySelectorAll('input[name="generos"]:checked').length;
+    if (countLabel) {
+      countLabel.textContent = `${n} género${n !== 1 ? 's' : ''} seleccionado${n !== 1 ? 's' : ''}`;
+    }
+    if (saveBtn) saveBtn.disabled = n === 0;
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+  updateCount(); // Inicializa con valores preseleccionados del servidor
+</script>
+{% endblock %}
